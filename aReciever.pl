@@ -7,10 +7,9 @@ use Time::HiRes qw(usleep);
 
 use IO::Socket::INET;
 
+#Get how long the high byte from the reading
 sub get_high_byte {
   my $microseconds = shift;
-  
-#  my $value = ($microseconds * 16384) / 1000000;
   my $value = ($microseconds * 256) / 15625;
 
   $value = $value / 256;
@@ -18,6 +17,7 @@ sub get_high_byte {
   return $value;
 }
 
+#Get the low byte from the reading
 sub get_low_byte {
   my $microseconds = shift;
   
@@ -29,11 +29,12 @@ sub get_low_byte {
   return $value;
 }
 
+#encode arduino's messages for a message to LIRC
 sub encode_msg {
     my @in_msg = @_;
-    #my $in = shift;
     my $out_msg = "";
     my $toggle = 1;
+    #Work in byte mode
     use bytes;
     foreach(@in_msg)
     {
@@ -49,6 +50,7 @@ sub encode_msg {
 	{
 	    $toggle = 1;
 	}
+	#message should be how long the low signal was combined with the high signal
 	$out_msg .= chr($low) . chr($high);
 	
     }
@@ -70,12 +72,13 @@ while(1)
 {
     my $total = 0;
     my @reading = [];
+    #We should get 52 signals
     while($total != 52)
     {
 	my $final = "";
-	#my $saw = $port->lookfor();
 	my ($saw1, $saw, $saw2);
 	my $count = 0;
+	#Sit and read while we wait on the arduino to message us
 	while($count == 0)
 	{
 	    ($count, $saw1)=$port->read(1);
@@ -85,6 +88,7 @@ while(1)
 
 	    }
 	}
+	#Wait for the second message
 	$count = 0;
 	while($count == 0)
 	{
@@ -96,10 +100,12 @@ while(1)
 	    }
 	}
 
+	#unpack the 16 bit integer
 	$saw = $saw1 . $saw2;
 	$reading[$total] = unpack("n*",$saw);
 	$total++;
     }
+    #Get ready to send this to LIRC
     my $socket = new IO::Socket::INET->new(PeerPort=>8765,
 					   Proto=>'udp',
 					   PeerAddr=>'localhost',Broadcast=>1) or die "Can't bind : $@\n";
